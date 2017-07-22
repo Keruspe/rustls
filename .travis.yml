@@ -1,13 +1,15 @@
 language: rust
 group: deprecated-2017Q3
-rust:
-  - stable
-  - nightly
 matrix:
   include:
     - os: linux
       dist: trusty
       sudo: required
+      rust: stable
+    - os: linux
+      dist: trusty
+      sudo: required
+      rust: nightly
     - os: osx
       rust: stable
 before_install:
