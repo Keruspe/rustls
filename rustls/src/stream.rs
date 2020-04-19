@@ -22,13 +22,13 @@ impl<'a, S, T> Stream<'a, S, T> where S: 'a + Session, T: 'a + Read + Write {
 
     /// If we're handshaking, complete all the IO for that.
     /// If we have data to write, write it all.
-    fn complete_prior_io(&mut self) -> Result<()> {
+    fn complete_prior_io(&mut self, write_only: bool) -> Result<()> {
         if self.sess.is_handshaking() {
-            self.sess.complete_io(self.sock)?;
+            self.sess.complete_io(self.sock, false)?;
         }
 
         if self.sess.wants_write() {
-            self.sess.complete_io(self.sock)?;
+            self.sess.complete_io(self.sock, write_only)?;
         }
 
         Ok(())
@@ -37,7 +37,7 @@ impl<'a, S, T> Stream<'a, S, T> where S: 'a + Session, T: 'a + Read + Write {
 
 impl<'a, S, T> Read for Stream<'a, S, T> where S: 'a + Session, T: 'a + Read + Write {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
-        self.complete_prior_io()?;
+        self.complete_prior_io(false)?;
 
         // We call complete_io() in a loop since a single call may read only
         // a partial packet from the underlying transport. A full packet is
@@ -47,7 +47,7 @@ impl<'a, S, T> Read for Stream<'a, S, T> where S: 'a + Session, T: 'a + Read + W
         // read from the underlying transport.
         while
             self.sess.wants_read() &&
-            self.sess.complete_io(self.sock)?.0 != 0
+            self.sess.complete_io(self.sock, false)?.0 != 0
         { }
 
         self.sess.read(buf)
@@ -56,24 +56,24 @@ impl<'a, S, T> Read for Stream<'a, S, T> where S: 'a + Session, T: 'a + Read + W
 
 impl<'a, S, T> Write for Stream<'a, S, T> where S: 'a + Session, T: 'a + Read + Write {
     fn write(&mut self, buf: &[u8]) -> Result<usize> {
-        self.complete_prior_io()?;
+        self.complete_prior_io(true)?;
 
         let len = self.sess.write(buf)?;
 
         // Try to write the underlying transport here, but don't let
         // any errors mask the fact we've consumed `len` bytes.
         // Callers will learn of permanent errors on the next call.
-        let _ = self.sess.complete_io(self.sock);
+        let _ = self.sess.complete_io(self.sock, true);
 
         Ok(len)
     }
 
     fn flush(&mut self) -> Result<()> {
-        self.complete_prior_io()?;
+        self.complete_prior_io(true)?;
 
         self.sess.flush()?;
         if self.sess.wants_write() {
-            self.sess.complete_io(self.sock)?;
+            self.sess.complete_io(self.sock, true)?;
         }
         Ok(())
     }

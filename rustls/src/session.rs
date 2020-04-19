@@ -159,7 +159,7 @@ pub trait Session: quic::QuicExt + Read + Write + Send + Sync {
     ///
     /// Errors from TLS record handling (ie, from `process_new_packets()`)
     /// are wrapped in an `io::ErrorKind::InvalidData`-kind error.
-    fn complete_io<T>(&mut self, io: &mut T) -> Result<(usize, usize), io::Error>
+    fn complete_io<T>(&mut self, io: &mut T, write_only: bool) -> Result<(usize, usize), io::Error>
         where Self: Sized, T: Read + Write
     {
         let until_handshaked = self.is_handshaking();
@@ -170,6 +170,10 @@ pub trait Session: quic::QuicExt + Read + Write + Send + Sync {
         loop {
             while self.wants_write() {
                 wrlen += self.write_tls(io)?;
+            }
+
+            if write_only {
+                return Ok((rdlen, wrlen));
             }
 
             if !until_handshaked && wrlen > 0 {

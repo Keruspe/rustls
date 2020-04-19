@@ -986,7 +986,7 @@ fn client_complete_io_for_handshake() {
     let (mut client, mut server) = make_pair(KeyType::RSA);
 
     assert_eq!(true, client.is_handshaking());
-    let (rdlen, wrlen) = client.complete_io(&mut OtherSession::new(&mut server)).unwrap();
+    let (rdlen, wrlen) = client.complete_io(&mut OtherSession::new(&mut server), false).unwrap();
     assert!(rdlen > 0 && wrlen > 0);
     assert_eq!(false, client.is_handshaking());
 }
@@ -997,7 +997,7 @@ fn client_complete_io_for_handshake_eof() {
     let mut input = io::Cursor::new(Vec::new());
 
     assert_eq!(true, client.is_handshaking());
-    let err = client.complete_io(&mut input).unwrap_err();
+    let err = client.complete_io(&mut input, false).unwrap_err();
     assert_eq!(io::ErrorKind::UnexpectedEof, err.kind());
 }
 
@@ -1012,7 +1012,7 @@ fn client_complete_io_for_write() {
         client.write(b"01234567890123456789").unwrap();
         {
             let mut pipe = OtherSession::new(&mut server);
-            let (rdlen, wrlen) = client.complete_io(&mut pipe).unwrap();
+            let (rdlen, wrlen) = client.complete_io(&mut pipe, true).unwrap();
             assert!(rdlen == 0 && wrlen > 0);
             assert_eq!(pipe.writes, 2);
         }
@@ -1030,7 +1030,7 @@ fn client_complete_io_for_read() {
         server.write(b"01234567890123456789").unwrap();
         {
             let mut pipe = OtherSession::new(&mut server);
-            let (rdlen, wrlen) = client.complete_io(&mut pipe).unwrap();
+            let (rdlen, wrlen) = client.complete_io(&mut pipe, false).unwrap();
             assert!(rdlen > 0 && wrlen == 0);
             assert_eq!(pipe.reads, 1);
         }
@@ -1044,7 +1044,7 @@ fn server_complete_io_for_handshake() {
         let (mut client, mut server) = make_pair(*kt);
 
         assert_eq!(true, server.is_handshaking());
-        let (rdlen, wrlen) = server.complete_io(&mut OtherSession::new(&mut client)).unwrap();
+        let (rdlen, wrlen) = server.complete_io(&mut OtherSession::new(&mut client), false).unwrap();
         assert!(rdlen > 0 && wrlen > 0);
         assert_eq!(false, server.is_handshaking());
     }
@@ -1056,7 +1056,7 @@ fn server_complete_io_for_handshake_eof() {
     let mut input = io::Cursor::new(Vec::new());
 
     assert_eq!(true, server.is_handshaking());
-    let err = server.complete_io(&mut input).unwrap_err();
+    let err = server.complete_io(&mut input, false).unwrap_err();
     assert_eq!(io::ErrorKind::UnexpectedEof, err.kind());
 }
 
@@ -1071,7 +1071,7 @@ fn server_complete_io_for_write() {
         server.write(b"01234567890123456789").unwrap();
         {
             let mut pipe = OtherSession::new(&mut client);
-            let (rdlen, wrlen) = server.complete_io(&mut pipe).unwrap();
+            let (rdlen, wrlen) = server.complete_io(&mut pipe, true).unwrap();
             assert!(rdlen == 0 && wrlen > 0);
             assert_eq!(pipe.writes, 2);
         }
@@ -1089,7 +1089,7 @@ fn server_complete_io_for_read() {
         client.write(b"01234567890123456789").unwrap();
         {
             let mut pipe = OtherSession::new(&mut client);
-            let (rdlen, wrlen) = server.complete_io(&mut pipe).unwrap();
+            let (rdlen, wrlen) = server.complete_io(&mut pipe, false).unwrap();
             assert!(rdlen > 0 && wrlen == 0);
             assert_eq!(pipe.reads, 1);
         }
@@ -1384,7 +1384,7 @@ fn server_complete_io_for_handshake_ending_with_alert() {
     assert_eq!(true, server.is_handshaking());
 
     let mut pipe = OtherSession::new_fails(&mut client);
-    let rc = server.complete_io(&mut pipe);
+    let rc = server.complete_io(&mut pipe, false);
     assert!(rc.is_err(),
             "server io failed due to handshake failure");
     assert!(!server.wants_write(),
